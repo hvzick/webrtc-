@@ -1,10 +1,10 @@
 import { WebSocketServer } from 'ws';
 import { createServer } from 'http';
 
-const PORT = 8080;
+
+const PORT = process.env.PORT || 8080; // <--- important for Render
 const server = createServer();
 const wss = new WebSocketServer({ server });
-
 // Store connected clients with their wallet addresses
 const clients = new Map();
 
@@ -71,7 +71,7 @@ wss.on('connection', (ws) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`✅ Signaling server running on ws://localhost:${PORT}`);
-  console.log('📋 Ready for client connections...');
+
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Signaling server running on ws://0.0.0.0:${PORT}`);
 });
