@@ -15,7 +15,7 @@ A peer-to-peer terminal-based messaging system using WebRTC and Ethereum wallet 
 
 ## 📋 Requirements
 
-- Node.js v14+ 
+- Node.js v14+
 - npm or yarn
 
 ## 🚀 Installation
@@ -25,13 +25,11 @@ A peer-to-peer terminal-based messaging system using WebRTC and Ethereum wallet 
    git clone https://github.com/za.i.14/webrtc-terminal-messaging.git
    cd webrtc-terminal-messaging
    2. Install dependencies:
+   ```
 
 ```shellscript
 npm install
 ```
-
-
-
 
 ## 💻 Usage
 
@@ -88,7 +86,6 @@ In the client terminal:
 - `clear` - Clear the terminal
 - `quit` or `exit` - Exit the application
 
-
 ## 🔍 How It Works
 
 ### Architecture
@@ -112,33 +109,24 @@ In the client terminal:
 1. **Signaling Server**: Facilitates the initial connection between clients
 
 1. Handles client registration with wallet addresses
-2. Forwards WebRTC offers, answers, and ICE candidates
+1. Forwards WebRTC offers, answers, and ICE candidates
 
-
-
-2. **WebRTC Connection**: Establishes direct peer-to-peer connection
+1. **WebRTC Connection**: Establishes direct peer-to-peer connection
 
 1. Uses STUN servers for NAT traversal
-2. Creates data channels for messaging
+1. Creates data channels for messaging
 
-
-
-3. **Message Flow**:
+1. **Message Flow**:
 
 1. Messages are sent directly between peers
-2. No server involvement after connection is established
-3. Terminal interface captures input and displays messages
-
-
-
-
+1. No server involvement after connection is established
+1. Terminal interface captures input and displays messages
 
 ## 🔒 Security Considerations
 
 - This is a basic implementation for demonstration purposes
 - No encryption is implemented in this version
 - Wallet addresses are used as identifiers only, no actual blockchain integration
-
 
 ## 🛠️ Future Improvements
 
@@ -148,7 +136,6 @@ In the client terminal:
 - Group messaging support
 - File transfer capabilities
 - Better error handling and reconnection logic
-
 
 ## 📄 License
 
@@ -163,7 +150,6 @@ Contributions, issues, and feature requests are welcome!
 3. Commit your Changes (`git commit -m 'Add some amazing feature'`)
 4. Push to the Branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
-
 
 ```plaintext
 
