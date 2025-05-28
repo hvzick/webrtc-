@@ -21,6 +21,8 @@ class TerminalMessenger {
     this.dataChannel = null;
     this.targetWallet = null;
     this.connected = false;
+    this.pendingCandidates = [];
+    this.remoteDescriptionSet = false;
 
     this.setupTerminal();
     this.connectToServer();
@@ -120,9 +122,9 @@ class TerminalMessenger {
       }));
     });
 
-    this.ws.on('message', (data) => {
+    this.ws.on('message', async (data) => {
       const message = JSON.parse(data.toString());
-      this.handleSignalingMessage(message);
+      await this.handleSignalingMessage(message);
     });
 
     this.ws.on('error', (error) => {
@@ -211,30 +213,53 @@ class TerminalMessenger {
         break;
 
       case 'offer':
-        console.log(`📞 Incoming connection from ${this.getShortWallet(message.from)}`);
-        this.targetWallet = message.from;
+        if (!this.peerConnection || this.peerConnection.signalingState === 'stable') {
+          console.log(`📞 Incoming connection from ${this.getShortWallet(message.from)}`);
+          this.targetWallet = message.from;
 
-        this.peerConnection = new wrtc.RTCPeerConnection({ iceServers: ICE_SERVERS });
-        this.setupPeerConnection();
+          this.peerConnection = new wrtc.RTCPeerConnection({ iceServers: ICE_SERVERS });
+          this.setupPeerConnection();
 
-        await this.peerConnection.setRemoteDescription(message.offer);
-        const answer = await this.peerConnection.createAnswer();
-        await this.peerConnection.setLocalDescription(answer);
+          await this.peerConnection.setRemoteDescription(message.offer);
+          this.remoteDescriptionSet = true;
 
-        this.ws.send(JSON.stringify({
-          type: 'answer',
-          from: this.walletAddress,
-          to: message.from,
-          answer: answer
-        }));
+          for (const candidate of this.pendingCandidates) {
+            await this.peerConnection.addIceCandidate(candidate);
+          }
+          this.pendingCandidates = [];
+
+          const answer = await this.peerConnection.createAnswer();
+          await this.peerConnection.setLocalDescription(answer);
+
+          this.ws.send(JSON.stringify({
+            type: 'answer',
+            from: this.walletAddress,
+            to: message.from,
+            answer: answer
+          }));
+        } else {
+          console.warn('⚠️ Ignored incoming offer: already in negotiation');
+        }
         break;
 
       case 'answer':
-        await this.peerConnection.setRemoteDescription(message.answer);
+        if (this.peerConnection.signalingState === 'have-local-offer') {
+          await this.peerConnection.setRemoteDescription(message.answer);
+        } else {
+          console.warn('⚠️ Received answer in unexpected state:', this.peerConnection.signalingState);
+        }
         break;
 
       case 'ice-candidate':
-        await this.peerConnection.addIceCandidate(message.candidate);
+        if (this.remoteDescriptionSet) {
+          try {
+            await this.peerConnection.addIceCandidate(message.candidate);
+          } catch (err) {
+            console.error('🚨 Failed to set ICE candidate:', err);
+          }
+        } else {
+          this.pendingCandidates.push(message.candidate);
+        }
         break;
 
       case 'error':
