@@ -2,7 +2,7 @@ import WebSocket from 'ws';
 import wrtc from 'wrtc';
 import readline from 'readline';
 
-const SIGNALING_SERVER = 'ws://localhost:8080';
+const SIGNALING_SERVER =  'wss://webrtc-signalling2.onrender.com';
 
 class TerminalMessenger {
   constructor(walletAddress) {
@@ -126,9 +126,17 @@ class TerminalMessenger {
     this.targetWallet = targetWallet;
     console.log(`🤝 Connecting to ${targetWallet}...`);
     
-    this.peerConnection = new wrtc.RTCPeerConnection({
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    const peerConnection = new RTCPeerConnection({
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        {
+          urls: 'turn:turn.viagenie.ca',
+          credential: 'webrtc',
+          username: 'webrtc@live.com'
+        }
+      ]
     });
+    
     
     this.setupPeerConnection();
     
