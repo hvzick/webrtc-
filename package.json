@@ -1,0 +1,18 @@
+{
+  "name": "webrtc-terminal-messaging",
+  "version": "1.0.0",
+  "description": "WebRTC-based terminal messaging using Ethereum wallet addresses",
+  "type": "module",
+  "main": "client.js",
+  "scripts": {
+    "server": "node signaling-server.js",
+    "client": "node client.js"
+  },
+  "dependencies": {
+    "ws": "^8.14.2",
+    "wrtc": "^0.4.7"
+  },
+  "keywords": ["webrtc", "messaging", "ethereum", "p2p", "terminal"],
+  "author": "Your Name",
+  "license": "MIT"
+}
