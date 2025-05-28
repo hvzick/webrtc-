@@ -2,7 +2,16 @@ import WebSocket from 'ws';
 import wrtc from 'wrtc';
 import readline from 'readline';
 
-const SIGNALING_SERVER =  'wss://webrtc-signalling2.onrender.com';
+const SIGNALING_SERVER = 'wss://webrtc-signalling2.onrender.com';
+
+const ICE_SERVERS = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  {
+    urls: 'turn:turn.anyfirewall.com:443?transport=tcp',
+    username: 'webrtc',
+    credential: 'webrtc'
+  }
+];
 
 class TerminalMessenger {
   constructor(walletAddress) {
@@ -12,11 +21,11 @@ class TerminalMessenger {
     this.dataChannel = null;
     this.targetWallet = null;
     this.connected = false;
-    
+
     this.setupTerminal();
     this.connectToServer();
   }
-  
+
   setupTerminal() {
     console.clear();
     console.log('╔══════════════════════════════════════════════════════════════╗');
@@ -24,21 +33,21 @@ class TerminalMessenger {
     console.log('╚══════════════════════════════════════════════════════════════╝');
     console.log(`🔐 Your Wallet: ${this.walletAddress}`);
     console.log('');
-    
+
     this.rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
       prompt: '> '
     });
-    
+
     this.showCommands();
     this.rl.prompt();
-    
+
     this.rl.on('line', (input) => {
       this.handleTerminalInput(input.trim());
     });
   }
-  
+
   showCommands() {
     console.log('📝 Available Commands:');
     console.log('   connect <wallet-address>  - Connect to another user');
@@ -53,32 +62,32 @@ class TerminalMessenger {
     }
     console.log('─'.repeat(60));
   }
-  
+
   handleTerminalInput(input) {
     if (input === '') {
       this.rl.prompt();
       return;
     }
-    
+
     if (input === 'quit' || input === 'exit') {
       console.log('\n👋 Goodbye!');
       this.cleanup();
       process.exit(0);
     }
-    
+
     if (input === 'help') {
       this.showCommands();
       this.rl.prompt();
       return;
     }
-    
+
     if (input === 'clear') {
       console.clear();
       this.showCommands();
       this.rl.prompt();
       return;
     }
-    
+
     if (input.startsWith('connect ')) {
       const targetWallet = input.substring(8).trim();
       if (targetWallet) {
@@ -89,21 +98,20 @@ class TerminalMessenger {
       this.rl.prompt();
       return;
     }
-    
-    // If connected, send the message
+
     if (this.connected && this.dataChannel && this.dataChannel.readyState === 'open') {
       this.sendMessage(input);
     } else {
       console.log('❌ Not connected. Use: connect <wallet-address>');
     }
-    
+
     this.rl.prompt();
   }
-  
+
   connectToServer() {
     console.log('🔌 Connecting to signaling server...');
     this.ws = new WebSocket(SIGNALING_SERVER);
-    
+
     this.ws.on('open', () => {
       console.log('✅ Connected to signaling server');
       this.ws.send(JSON.stringify({
@@ -111,43 +119,34 @@ class TerminalMessenger {
         walletAddress: this.walletAddress
       }));
     });
-    
+
     this.ws.on('message', (data) => {
       const message = JSON.parse(data.toString());
       this.handleSignalingMessage(message);
     });
-    
+
     this.ws.on('error', (error) => {
       console.error('🚨 Server connection error:', error.message);
     });
+
+    this.ws.on('close', () => {
+      console.error('🔌 WebSocket disconnected. Try restarting the app.');
+    });
   }
-  
+
   async initiateConnection(targetWallet) {
     this.targetWallet = targetWallet;
     console.log(`🤝 Connecting to ${targetWallet}...`);
-    
-    const peerConnection = new RTCPeerConnection({
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        {
-          urls: 'turn:turn.viagenie.ca',
-          credential: 'webrtc',
-          username: 'webrtc@live.com'
-        }
-      ]
-    });
-    
-    
+
+    this.peerConnection = new wrtc.RTCPeerConnection({ iceServers: ICE_SERVERS });
     this.setupPeerConnection();
-    
-    // Create data channel for messaging
+
     this.dataChannel = this.peerConnection.createDataChannel('chat');
     this.setupDataChannel();
-    
-    // Create and send offer
+
     const offer = await this.peerConnection.createOffer();
     await this.peerConnection.setLocalDescription(offer);
-    
+
     this.ws.send(JSON.stringify({
       type: 'offer',
       from: this.walletAddress,
@@ -155,7 +154,7 @@ class TerminalMessenger {
       offer: offer
     }));
   }
-  
+
   setupPeerConnection() {
     this.peerConnection.onicecandidate = (event) => {
       if (event.candidate) {
@@ -167,12 +166,12 @@ class TerminalMessenger {
         }));
       }
     };
-    
+
     this.peerConnection.ondatachannel = (event) => {
       this.dataChannel = event.channel;
       this.setupDataChannel();
     };
-    
+
     this.peerConnection.onconnectionstatechange = () => {
       const state = this.peerConnection.connectionState;
       if (state === 'connected') {
@@ -186,46 +185,42 @@ class TerminalMessenger {
       }
     };
   }
-  
+
   setupDataChannel() {
     this.dataChannel.onopen = () => {
       console.log('📡 Chat channel ready');
     };
-    
+
     this.dataChannel.onmessage = (event) => {
-      // Clear current line and show incoming message
       process.stdout.write('\r\x1b[K');
       console.log(`📨 ${this.getShortWallet(this.targetWallet)}: ${event.data}`);
       this.rl.prompt();
     };
-    
+
     this.dataChannel.onclose = () => {
       this.connected = false;
       console.log('📡 Chat channel closed');
     };
   }
-  
+
   async handleSignalingMessage(message) {
     switch (message.type) {
       case 'registered':
         console.log(`✅ Registered as ${this.getShortWallet(message.walletAddress)}`);
         console.log('🎯 Ready to connect to other wallets');
         break;
-        
+
       case 'offer':
         console.log(`📞 Incoming connection from ${this.getShortWallet(message.from)}`);
         this.targetWallet = message.from;
-        
-        this.peerConnection = new wrtc.RTCPeerConnection({
-          iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-        });
-        
+
+        this.peerConnection = new wrtc.RTCPeerConnection({ iceServers: ICE_SERVERS });
         this.setupPeerConnection();
+
         await this.peerConnection.setRemoteDescription(message.offer);
-        
         const answer = await this.peerConnection.createAnswer();
         await this.peerConnection.setLocalDescription(answer);
-        
+
         this.ws.send(JSON.stringify({
           type: 'answer',
           from: this.walletAddress,
@@ -233,32 +228,32 @@ class TerminalMessenger {
           answer: answer
         }));
         break;
-        
+
       case 'answer':
         await this.peerConnection.setRemoteDescription(message.answer);
         break;
-        
+
       case 'ice-candidate':
         await this.peerConnection.addIceCandidate(message.candidate);
         break;
-        
+
       case 'error':
         console.log(`❌ ${message.message}`);
         break;
     }
   }
-  
+
   sendMessage(text) {
     if (this.dataChannel && this.dataChannel.readyState === 'open') {
       this.dataChannel.send(text);
       console.log(`📤 You: ${text}`);
     }
   }
-  
+
   getShortWallet(wallet) {
     return `${wallet.substring(0, 6)}...${wallet.substring(38)}`;
   }
-  
+
   cleanup() {
     if (this.dataChannel) this.dataChannel.close();
     if (this.peerConnection) this.peerConnection.close();
@@ -267,7 +262,6 @@ class TerminalMessenger {
   }
 }
 
-// Get wallet from command line
 const wallet = process.argv[2];
 if (!wallet) {
   console.log('Usage: node client.js <wallet-address>');
@@ -277,7 +271,6 @@ if (!wallet) {
 
 new TerminalMessenger(wallet);
 
-// Handle Ctrl+C
 process.on('SIGINT', () => {
   console.log('\n👋 Exiting...');
   process.exit(0);
